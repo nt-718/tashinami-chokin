@@ -1,26 +1,35 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+// GitHub Pages で公開している URL。画像などは /tashinami-chokin/ 以下にあるので、絶対 URL で指定する
+const SITE_URL = 'https://nt-718.github.io/tashinami-chokin/';
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://gaman-bank.nakagawatakahiro.chatgpt.site'),
-  title: 'GAMAN BANK — 我慢が貯金になる30日ゲーム',
-  description: 'いつもの嗜好品を我慢した分だけ、貯金瓶にコインが落ちていく30日チャレンジ。',
+  metadataBase: new URL(SITE_URL),
+  title: 'たしなみ貯金',
+  description: 'ビールやタバコなど、いつもの嗜好品をやめた分だけびんに積み立てていく30日の貯金アプリ。',
+  icons: { icon: `${SITE_URL}favicon.svg` },
   openGraph: {
-    title: 'GAMAN BANK',
-    description: '今日の我慢を、明日の余裕に。30日で貯金瓶を満たそう。',
-    url: 'https://gaman-bank.nakagawatakahiro.chatgpt.site',
-    siteName: 'GAMAN BANK',
+    title: 'たしなみ貯金',
+    description: '嗜好品をやめた分だけ、びんにたまっていく。30日の貯金アプリ。',
+    url: SITE_URL,
+    siteName: 'たしなみ貯金',
     locale: 'ja_JP',
     type: 'website',
-    images: [{ url: '/og.png', width: 1672, height: 941, alt: 'GAMAN BANKの貯金瓶' }],
+    images: [{ url: `${SITE_URL}og.png`, width: 1672, height: 941, alt: 'たしなみ貯金' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GAMAN BANK',
-    description: '今日の我慢を、明日の余裕に。30日で貯金瓶を満たそう。',
-    images: ['/og.png'],
+    title: 'たしなみ貯金',
+    description: '嗜好品をやめた分だけ、びんにたまっていく。30日の貯金アプリ。',
+    images: [`${SITE_URL}og.png`],
   },
 };
+
+// サーバーでの処理はないので、GitHub Pages 向けに静的な HTML として書き出せる
+export const dynamic = 'force-static';
+
+export const viewport: Viewport = { themeColor: '#f5f6f8' };
 
 export default function RootLayout({
   children,
