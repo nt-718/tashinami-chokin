@@ -127,14 +127,22 @@ const labelTexture = () => canvasTexture(1024, 440, (ctx) => {
 
 const sameItem = (a: JarItem, b: JarItem) => a.shape === b.shape && a.tone === b.tone;
 
-export function createJarScene(container: HTMLElement, options: { reducedMotion: boolean }): JarSceneHandle {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+type JarSceneOptions = {
+  reducedMotion: boolean;
+  // GPU の負荷やメモリ不足で 3D 表示が止められたときに呼ぶ
+  onContextLost: () => void;
+};
+
+export function createJarScene(container: HTMLElement, options: JarSceneOptions): JarSceneHandle {
+  // スマホは GPU もメモリも小さい。重すぎると表示が止められ、しばらく 3D 自体が使えなくなるので軽くする
+  const lowPower = window.matchMedia('(pointer: coarse)').matches;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = lowPower ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -149,7 +157,7 @@ export function createJarScene(container: HTMLElement, options: { reducedMotion:
   const sun = new THREE.DirectionalLight(0xffffff, 2.2);
   sun.position.set(3.5, 7, 4);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.setScalar(lowPower ? 512 : 1024);
   sun.shadow.camera.left = -3;
   sun.shadow.camera.right = 3;
   sun.shadow.camera.top = 3;
@@ -489,6 +497,13 @@ export function createJarScene(container: HTMLElement, options: { reducedMotion:
   const canvas = renderer.domElement;
   canvas.style.touchAction = 'pan-y';
 
+  const onContextLost = (event: Event) => {
+    event.preventDefault();
+    renderer.setAnimationLoop(null);
+    options.onContextLost();
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
+
   const onPointerDown = (event: PointerEvent) => {
     dragging = { x: event.clientX, t: performance.now() };
     velocity = 0;
@@ -581,6 +596,7 @@ export function createJarScene(container: HTMLElement, options: { reducedMotion:
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       removeFrom(0);
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -593,6 +609,8 @@ export function createJarScene(container: HTMLElement, options: { reducedMotion:
       [...textures, labelMap, environment].forEach((texture) => texture.dispose());
       pmrem.dispose();
       renderer.dispose();
+      // dispose だけでは GPU のコンテキストがすぐには返されないので、明示的に手放す
+      renderer.forceContextLoss();
       canvas.remove();
     },
   };

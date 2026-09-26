@@ -12,6 +12,8 @@ export default function JarCanvas({ items, scale, ready }: Props) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   // 失敗した理由。端末ごとの原因を調べられるよう、画面に小さく出す
   const [failReason, setFailReason] = useState('');
+  // 増やすと 3D を作り直す（表示が止まったあとの「もう一度表示する」）
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const previous = latestRef.current.items.length;
@@ -42,7 +44,14 @@ export default function JarCanvas({ items, scale, ready }: Props) {
       .then(({ createJarScene }) => {
         if (cancelled) return;
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const handle = createJarScene(container, { reducedMotion });
+        const handle = createJarScene(container, {
+          reducedMotion,
+          onContextLost: () => {
+            if (cancelled) return;
+            setFailReason('lost');
+            setStatus('failed');
+          },
+        });
         handle.setItems(latestRef.current.items, latestRef.current.scale, false);
         sceneRef.current = handle;
         setStatus('ready');
@@ -58,15 +67,31 @@ export default function JarCanvas({ items, scale, ready }: Props) {
       sceneRef.current?.dispose();
       sceneRef.current = null;
     };
-  }, [ready]);
+  }, [ready, attempt]);
+
+  const retry = () => {
+    // 止まった 3D を片付けてから作り直す
+    sceneRef.current?.dispose();
+    sceneRef.current = null;
+    setFailReason('');
+    setStatus('loading');
+    setAttempt((current) => current + 1);
+  };
 
   return (
     <div className={`jar-canvas is-${status}`} ref={containerRef}>
-      {status === 'failed' && (
-        <p className="jar-fallback">
-          この端末では 3D 表示を利用できません。
+      {status === 'failed' && failReason === 'lost' && (
+        <div className="jar-fallback">
+          <p>端末の負荷が高くなったため、3D 表示が止まりました。</p>
+          <button type="button" onClick={retry}>もう一度表示する</button>
+        </div>
+      )}
+      {status === 'failed' && failReason !== 'lost' && (
+        <div className="jar-fallback">
+          <p>この端末では 3D 表示を利用できません。</p>
+          <p className="small">ブラウザを一度閉じて開き直すと、表示できることがあります。</p>
           {failReason && <small>{failReason}</small>}
-        </p>
+        </div>
       )}
     </div>
   );
