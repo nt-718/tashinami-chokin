@@ -10,6 +10,8 @@ export default function JarCanvas({ items, scale, ready }: Props) {
   const sceneRef = useRef<JarSceneHandle | null>(null);
   const latestRef = useRef({ items, scale });
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // 失敗した理由。端末ごとの原因を調べられるよう、画面に小さく出す
+  const [failReason, setFailReason] = useState('');
 
   useEffect(() => {
     const previous = latestRef.current.items.length;
@@ -45,7 +47,12 @@ export default function JarCanvas({ items, scale, ready }: Props) {
         sceneRef.current = handle;
         setStatus('ready');
       })
-      .catch(() => { if (!cancelled) setStatus('failed'); });
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        console.error(error);
+        setFailReason(error instanceof Error ? error.message : String(error));
+        setStatus('failed');
+      });
     return () => {
       cancelled = true;
       sceneRef.current?.dispose();
@@ -55,7 +62,12 @@ export default function JarCanvas({ items, scale, ready }: Props) {
 
   return (
     <div className={`jar-canvas is-${status}`} ref={containerRef}>
-      {status === 'failed' && <p className="jar-fallback">この端末では 3D 表示を利用できません。</p>}
+      {status === 'failed' && (
+        <p className="jar-fallback">
+          この端末では 3D 表示を利用できません。
+          {failReason && <small>{failReason}</small>}
+        </p>
+      )}
     </div>
   );
 }
